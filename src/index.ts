@@ -190,3 +190,4 @@
 // // "fastify-swagger-ui": "^2.0.0",
 export * from './useBUSfetch'
 export * from './useSYSfetch'
+export * from './getRequestParams'
