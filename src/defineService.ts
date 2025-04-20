@@ -172,3 +172,46 @@ export interface AxiosConfigHeaderSign {
   sysTime: number,
   sm4Key: string,
 }
+type ParamsType = 'json_str' | 'formData' | 'json'
+export interface HiRequestOptions<T> {
+  params_type?: ParamsType
+  onSuccess?: (res: any) => void
+  onFormat?: (res: any) => any
+  onFail?: (res: any) => void
+  onFormatParams?: (res: any) => any // 格式化提交参数
+  fail_message?: string // 请求失败自定义消息
+  success_message?: string // 请求成功自定义消息
+  onPrompt?: boolean | ((res: any) => void) // 自定义请求提示
+  responseType?: ResponseType // 请求类型
+  param_not_null_key?: string // 用于阻止默认请求
+  param_not_null_key_tip?: string // 用于阻止默认请求后提示
+  params_filter?: any
+  res_key_name?: string // 返回数据字段名称
+  // params_type?: 'json_str' | 'json' | 'formData'
+  params_str?: string
+  contentType: string
+  /**
+   * 格式化 table row data
+   * electricPriceFiles/电价政策文件
+   * itemFiles: [{documentId, originalAllFilename, originalFilename}]}
+   */
+  format_table_row_data: {
+    format_key: string // 待格式化字段名称
+    format_type: string // 待格式化字段类型
+    format_content: string // 待格式化字段内容
+  }
+  res_data_name?: string // 表格数据对应字段名称
+  res_total_name?: string // 表格数据总数对应字段
+}
+export interface HiResponseData<T> {
+  logLevel: string
+  message: string
+  remarks: string
+  sV: number
+  statusCode: '200' | '603' | '708'
+  result?: T
+  successful?: boolean // 请求是否成功
+  success?: boolean // 请求是否成功
+  resultValue?: T
+  resultHint?: string // 请求结果提示语
+}
