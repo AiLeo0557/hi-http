@@ -21,7 +21,7 @@ interface ParamConfigOptions {
   fail_message?: string; // 失败提示语
   onFormat?: (data: any) => any; // 格式化参数
   onFormatParams?: (data: any) => any; // 格式化参数
-  onPrompt?: (data: any) => void | boolean; // 提示语
+  onPrompt?: ((data: any) => void) | boolean; // 提示语
   onSuccess?: (data: any) => void; // 成功回调
   // [key: string]: any;
 }
