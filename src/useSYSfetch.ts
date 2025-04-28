@@ -17,7 +17,11 @@ export const useSysGet = async (url: string) => {
     ElMessage.error(error.message)
   }
 }
-export async function useSysPost<T>(url: string, params: any = {}, options?: HiRequestOptions<T>) {
+export async function useSysPost<T>(
+  url: string, // 请求地址
+  params: any = {}, // 请求参数
+  options?: HiRequestOptions<T>, // 请求配置
+) {
   try {
     // params.appId = appId.value
     const res: { data: HiResponseData<T> } = await service.post(url, params)
@@ -26,7 +30,7 @@ export async function useSysPost<T>(url: string, params: any = {}, options?: HiR
       options?.onFail?.(res.data)
       throw new Error(message)
     }
-    options?.onSuccess?.(res.data)
+    options?.onSuccess?.(res.data, res as any)
     if (options?.onFormat !== undefined) {
       return options?.onFormat(res.data)
     }

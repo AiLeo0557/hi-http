@@ -35,11 +35,10 @@ const sm = new SmCore({
 let modeChanged = false;
 let flag = false; // 解决多次弹出登录框
 export function defineService(type: HiServiceType) {
-  let accessToken = ''
-  if (typeof window !== 'undefined') {
-    console.log('localStorage:', window?.localStorage);
-    accessToken = window?.localStorage?.getItem('USERTOKEN');
-  }
+  // let accessToken = ''
+  // if (typeof window !== 'undefined') {
+  //   accessToken = window?.localStorage?.getItem('USERTOKEN');
+  // }
   let baseURL = ''
   if (Reflect.has(import.meta, 'env')) {
     baseURL = Reflect.get((import.meta as any).env, `VITE_${type}_API_URL`);
@@ -53,6 +52,8 @@ export function defineService(type: HiServiceType) {
   service.interceptors.request.use(
     async (config: InternalAxiosRequestConfig<any>): Promise<InternalAxiosRequestConfig<any>> => {
       const { url, method } = config
+      const accessToken = window?.localStorage?.getItem('USERTOKEN')
+      console.log('accessToken:', accessToken)
       let { pathname } = window.location
       const _arr = pathname.split('/')
       pathname = _arr[_arr.length - 1]
@@ -66,7 +67,6 @@ export function defineService(type: HiServiceType) {
       if (!accessToken) {
         sign.accessToken = ''
       }
-      console.log(69, 'sign:', sm.encrypt(sign))
       config.headers = {
         transmissionMode: false, // 传输模式
         catalog: pathname, // 菜单名称
@@ -128,7 +128,6 @@ export function defineService(type: HiServiceType) {
         `%chttpCode:${status} request url: ${config ? config.url : '-'} `,
         'color:red'
       )
-      console.log('message:', message)
       const stackFrames = stack?.split('\n')
       stackFrames?.slice(1)?.forEach((frame, index) => {
         const parsedFrame = parseStackFrame(frame) || {}
@@ -223,13 +222,13 @@ export interface HiRequestOptions<T> {
   res_key_name?: string // 返回数据字段名称
   // params_type?: 'json_str' | 'json' | 'formData'
   params_str?: string
-  contentType: string
+  contentType?: string
   /**
    * 格式化 table row data
    * electricPriceFiles/电价政策文件
    * itemFiles: [{documentId, originalAllFilename, originalFilename}]}
    */
-  format_table_row_data: {
+  format_table_row_data?: {
     format_key: string // 待格式化字段名称
     format_type: string // 待格式化字段类型
     format_content: string // 待格式化字段内容
