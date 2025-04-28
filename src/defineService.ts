@@ -1,10 +1,8 @@
-// import SmCore from 'sm-core'
+import SmCore from 'sm-core'
 import axios from 'axios';
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
-import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { isUndefined } from 'hi-datatype-operation';
-//  AxiosError, AxiosRequestConfig,
+
 /**
  * author: 杜朝辉
  * date: 2025-02-21
@@ -29,11 +27,11 @@ if (Reflect.has(import.meta, 'env')) {
   SM2PubKey = Reflect.get((import.meta as any).env, 'VITE_SM2PUBKEY');
   headCRC = Reflect.get((import.meta as any).env, 'VITE_HEADCRC');
 }
-// const sm = new SmCore({
-//   SM2PubKey,
-//   headCRC,
-//   SM2PriKey: '',
-// })
+const sm = new SmCore({
+  SM2PubKey,
+  headCRC,
+  SM2PriKey: '',
+})
 let modeChaged = false;
 let flag = false;
 export function defineService(type: HiServiceType) {
@@ -55,23 +53,26 @@ export function defineService(type: HiServiceType) {
   service.interceptors.request.use(
     async (config: InternalAxiosRequestConfig<any>): Promise<InternalAxiosRequestConfig<any>> => {
       const { url, method } = config
-      const route = useRoute()
+      let { pathname } = window.location
+      const _arr = pathname.split('/')
+      pathname = _arr[_arr.length - 1]
       const sysTime = new Date().getTime()
       const sign: AxiosConfigHeaderSign = {
         data: JSON.stringify(config.data || config.params) || 'OK',
         sysTime,
-        sign: `${sysTime}${accessToken}${url}${method}${route.name as string}`,
+        sign: `${sysTime}${accessToken}${url}${method}${pathname}`,
         sm4Key: sm4key,
       }
       if (!accessToken) {
         sign.accessToken = ''
       }
+
       config.headers = {
         transmissionMode: false, // 传输模式
-        catalog: route.name as string, // 菜单名称
+        catalog: pathname, // 菜单名称
         accessToken,
         sysTime,
-        // sign: sm.encrypt(sign),
+        sign: sm.encrypt(sign),
       } as any
       return config
     },
@@ -130,9 +131,8 @@ export function defineService(type: HiServiceType) {
                 showCancelButton: false,
               }
             ).then(() => {
-              const router = useRouter()
               flag = false
-              router.replace({ name: 'login' })
+              window.location.replace('/login')
             })
             break
           case 709:
