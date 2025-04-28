@@ -209,7 +209,7 @@ export interface AxiosConfigHeaderSign {
 type ParamsType = 'json_str' | 'formData' | 'json'
 export interface HiRequestOptions<T> {
   params_type?: ParamsType
-  onSuccess?: (res: any) => void
+  onSuccess?: (resdata: any, res?: AxiosResponse) => void
   onFormat?: (res: any) => any
   onFail?: (res: any) => void
   onFormatParams?: (res: any) => any // 格式化提交参数
