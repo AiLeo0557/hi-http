@@ -1,6 +1,6 @@
 import SmCore from 'sm-core'
 import axios from 'axios';
-import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+import type { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { ElMessage, ElMessageBox } from 'element-plus';
 
 /**
@@ -32,8 +32,8 @@ const sm = new SmCore({
   headCRC,
   SM2PriKey: '',
 })
-let modeChaged = false;
-let flag = false;
+let modeChanged = false;
+let flag = false; // 解决多次弹出登录框
 export function defineService(type: HiServiceType) {
   let accessToken = ''
   if (typeof window !== 'undefined') {
@@ -87,79 +87,113 @@ export function defineService(type: HiServiceType) {
       if (!data) {
         return response
       }
-      try { } catch (error: any) {
-        const { response, status = '-', config, stack, message } = error
-        console.groupCollapsed(
-          `%chttpCode:${status} 请求地址:${config?.url} 请求方法:${config?.method} 错误信息:${message}`,
-          'color: red; font-size: 20px;'
-        )
-        const stackFrames = stack.split('\n')
-        stackFrames?.slice(1).forEach((frame: string) => {
-          const { functionName, fileName, lineNumber, columnNumber }: any = parseStackFrame(frame)
-          console.log(`%c${functionName} ${fileName}:${lineNumber}:${columnNumber}`, 'color: blue;')
-        })
-        console.groupEnd()
-        if (!response) {
-          return
+      try {
+        const { remarks, resultHint, successful, resultValue, success, message, statusCode, sV } = data
+        if (remarks === 'isKey') {
+          ElMessage.success(message)
         }
-        const msg = response?.data?.message
-        switch (response.status) {
-          case 400:
-            ElMessage.error(msg || '数据被篡改!')
-            break
-          case 401:
-            ElMessage.error(msg || '登录已过期，请重新登录')
-            break
-          case 403:
-            ElMessage.error(msg || '请求被禁用!')
-            break
-          case 404:
-            ElMessage.error(msg || '请求资源不存在')
-            break
-          case 500:
-            ElMessage.error(msg || '服务器内部错误')
-            break
-          case 603:
-            flag = true
-            ElMessageBox.confirm(
-              msg,
-              '请求失败',
-              {
-                confirmButtonText: '重新登录',
-                type: 'error',
-                showClose: false,
-                showCancelButton: false,
-              }
-            ).then(() => {
-              flag = false
-              window.location.replace('/login')
-            })
-            break
-          case 709:
-            if (!modeChaged) {
-              modeChaged = true
-              const curr = sessionStorage.getItem('transmissionMode')
-              sessionStorage.setItem('transmissionMode', curr === 'true' ? 'false' : 'true')
-              setTimeout(
-                () => {
-                  window.location.reload()
-                },
-                700
-              )
-            }
-            break
-          default:
-            ElMessage.error(msg || '请求失败')
-            if (!response) {
-              if (msg.includes('timeout')) {
-                ElMessage.error('请求超时,请检查网络是否连接正常')
-              } else {
-                ElMessage.error('请求失败,请检查网络是否已连接')
-              }
-            }
-            return Promise.reject(response)
+        const nowtime = new Date().getTime()
+        // 只是再第一个接口请求的时候，对timeOut进行修改值
+        // if (request.responseURL.includes('getSystemConfig')) {
+        //   store.setTimeouts(sV - nowtime)
+        // }
+        // statusCode === '603' Token无效
+        if (successful === false || success === false || statusCode === '603') {
+          throw new Error(resultHint || message || resultValue)
+        }
+        return response
+      } catch (error: any) {
+        const { response, status = '-', config, stack, message } = error
+        ElMessage.error(message)
+        if (response?.data?.statusCode == 603 && !flag) {
+          flag = true
+          ElMessageBox.confirm(`${message}`, '请求失败', {
+            confirmButtonText: '重新登录',
+            type: 'error',
+            showClose: false,
+            showCancelButton: false
+          }).then(() => {
+            // store.$reset()
+            flag = false
+            // router.replace({ name: 'login' })
+            window.location.replace('/login')
+          })
+        }
+        return response
+      }
+    },
+    (error: AxiosError<any, any>) => {
+      const { response, status = '-', config, stack, message } = error
+      console.groupCollapsed(
+        `%chttpCode:${status} request url: ${config ? config.url : '-'} `,
+        'color:red'
+      )
+      console.log('message:', message)
+      const stackFrames = stack?.split('\n')
+      stackFrames?.slice(1)?.forEach((frame, index) => {
+        const parsedFrame = parseStackFrame(frame) || {}
+        /**
+         * todo: 实现点击跳转
+         */
+        Object.entries(parsedFrame).forEach(([k, v]) => { })
+      })
+      console.groupEnd()
+      if (!response) {
+        return
+      }
+      const msg = response!.data!.message
+      // 网络GG
+      if (response.status === 400) {
+        ElMessage.error('数据被篡改')
+      } else if (response.status === 403) {
+        ElMessage.error('请求被禁用')
+      }
+      if (response.status === 709) {
+        if (!modeChanged) {
+          modeChanged = true
+          const curr = sessionStorage.getItem('transmissionMode')
+          sessionStorage.setItem('transmissionMode', curr == 'false' ? 'true' : 'false')
+          setTimeout(() => {
+            window.location.reload()
+          }, 700)
         }
       }
+      if ((response.status == 603 || response.data.statusCode == 603) && !flag) {
+        flag = true
+        ElMessageBox.confirm(`${msg}`, '请求失败', {
+          confirmButtonText: '重新登录',
+          type: 'error',
+          showClose: false,
+          showCancelButton: false
+        }).then(() => {
+          // store.$reset()
+          flag = false
+          // router.replace({ name: 'login' })
+          window.location.replace('/login')
+        })
+      }
+      if (
+        response.status != 200 &&
+        response.status != 708 &&
+        response.status !== 403 &&
+        response.status !== 400 &&
+        response.status !== 709 &&
+        response.status !== 603 &&
+        !((response as any).status instanceof Blob)
+      ) {
+        ElMessage.error(msg)
+      } else if (!response) {
+        // 请求超时状态
+        if (msg.includes('timeout')) {
+          ElMessage.error('请求超时，请检查网络是否连接正常')
+        } else {
+          // 可以展示断网组件
+          ElMessage.error('请求失败，请检查网络是否已连接')
+        }
+        return
+      }
+      // do something 拦截响应
+      return Promise.reject(error)
     }
   )
   return service
