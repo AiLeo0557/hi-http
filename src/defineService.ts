@@ -66,13 +66,13 @@ export function defineService(type: HiServiceType) {
       if (!accessToken) {
         sign.accessToken = ''
       }
-
+      console.log(69, 'sign:', sm.encrypt(sign))
       config.headers = {
         transmissionMode: false, // 传输模式
         catalog: pathname, // 菜单名称
         accessToken,
         sysTime,
-        sign: sm.encrypt(sign),
+        sign: sm.encrypt(sign)._sign,
       } as any
       return config
     },
