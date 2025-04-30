@@ -191,3 +191,4 @@
 export * from './useBUSfetch'
 export * from './useSYSfetch'
 export * from './getRequestParams'
+export * from './defineService'
