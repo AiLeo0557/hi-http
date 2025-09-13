@@ -16,7 +16,7 @@ import { mockImportMeta, mockLocalStorage, createBusResponse, createSysResponse,
 describe('hi-http 集成测试', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // 设置默认环境变量
     mockImportMeta({
       VITE_BUS_API_URL: 'http://localhost:3000/bus',
@@ -24,7 +24,7 @@ describe('hi-http 集成测试', () => {
       VITE_FILE_DOWNLOAD_API_URL: 'http://localhost:3000/download',
       VITE_ENCRYPT_ENABLED: 'false'
     });
-    
+
     mockLocalStorage({ USERTOKEN: 'test-token-123' });
   });
 
@@ -46,7 +46,7 @@ describe('hi-http 集成测试', () => {
     it('应该完成完整的BUS POST请求流程', async () => {
       const requestData = { name: 'New User', email: 'user@example.com' };
       const responseData = { id: 123, ...requestData };
-      
+
       mockAxiosInstance.post.mockResolvedValue(
         createMockAxiosResponse(createBusResponse(responseData))
       );
@@ -64,7 +64,7 @@ describe('hi-http 集成测试', () => {
       const responseData = { results: [], total: 0 };
       const onSuccess = jest.fn();
       const onFormat = jest.fn((data) => data.resultValue);
-      
+
       mockAxiosInstance.post.mockResolvedValue(
         createMockAxiosResponse(createBusResponse(responseData))
       );
@@ -101,7 +101,7 @@ describe('hi-http 集成测试', () => {
     it('应该完成完整的SYS POST请求流程', async () => {
       const requestData = { theme: 'light', notifications: true };
       const responseData = { updated: true, config: requestData };
-      
+
       mockAxiosInstance.post.mockResolvedValue(
         createMockAxiosResponse(createSysResponse(responseData))
       );
@@ -116,7 +116,7 @@ describe('hi-http 集成测试', () => {
       const responseData = { users: [{ id: 1, name: 'Admin' }] };
       const onSuccess = jest.fn();
       const onFormat = jest.fn((data) => ({ count: data.result.users.length }));
-      
+
       mockAxiosInstance.post.mockResolvedValue(
         createMockAxiosResponse(createSysResponse(responseData))
       );
@@ -188,15 +188,23 @@ describe('hi-http 集成测试', () => {
       // 模拟 Blob 和 URL
       global.Blob = jest.fn((content, options) => ({ content, options })) as any;
       (window.URL.createObjectURL as jest.Mock).mockReturnValue('blob:test-url');
-      
+
       // 模拟 DOM 元素
       const mockElement = { click: jest.fn(), href: '', download: '' };
       const mockParent = { insertBefore: jest.fn(), removeChild: jest.fn() };
       (document.createElement as jest.Mock).mockReturnValue(mockElement);
       (document.getElementById as jest.Mock).mockReturnValue(mockParent);
-      
+
       // 模拟下载响应
-      mockAxiosInstance.post.mockResolvedValue('binary-file-data');
+      mockAxiosInstance.post.mockResolvedValue(
+        createMockAxiosResponse({
+          successful: true,
+          success: true,
+          message: 'File downloaded successfully',
+          resultValue: { test: 'binary-file-data' },
+          resultHint: '',
+        })
+      );
     });
 
     it('应该完成完整的文件下载流程', async () => {
@@ -207,7 +215,7 @@ describe('hi-http 集成测试', () => {
         {},
         { responseType: 'blob' }
       );
-      
+
       expect(global.Blob).toHaveBeenCalledWith(['binary-file-data']);
       expect(document.createElement).toHaveBeenCalledWith('a');
       expect(document.getElementById).toHaveBeenCalledWith('app');
@@ -260,7 +268,7 @@ describe('hi-http 集成测试', () => {
       // 重新加载模块以获取新的配置
       jest.resetModules();
       const { getHiHttpEncryptConfig, isEncryptEnabled } = require('../src/defineService');
-      
+
       expect(isEncryptEnabled()).toBe(true);
       const config = getHiHttpEncryptConfig();
       expect(config.enabled).toBe(true);
@@ -270,7 +278,7 @@ describe('hi-http 集成测试', () => {
 
     it('应该在禁用加密时使用默认配置', () => {
       const config = hiHttp.getHiHttpEncryptConfig();
-      
+
       expect(hiHttp.isEncryptEnabled()).toBe(false);
       expect(config.enabled).toBe(false);
     });
@@ -279,11 +287,11 @@ describe('hi-http 集成测试', () => {
   describe('实际使用场景模拟', () => {
     it('应该模拟用户登录流程', async () => {
       const loginRequest = { username: 'testuser', password: 'password123' };
-      const loginResponse = { 
+      const loginResponse = {
         token: 'jwt-token-abc123',
         user: { id: 1, username: 'testuser', role: 'admin' }
       };
-      
+
       mockAxiosInstance.post.mockResolvedValue(
         createMockAxiosResponse(createBusResponse(loginResponse))
       );
@@ -312,7 +320,7 @@ describe('hi-http 集成测试', () => {
         page: 1,
         pageSize: 10
       };
-      
+
       mockAxiosInstance.get.mockResolvedValue(
         createMockAxiosResponse(createBusResponse(listResponse))
       );
@@ -329,12 +337,12 @@ describe('hi-http 集成测试', () => {
     });
 
     it('应该模拟系统配置更新流程', async () => {
-      const configUpdate = { 
+      const configUpdate = {
         theme: 'dark',
         language: 'en',
         notifications: { email: true, push: false }
       };
-      
+
       mockAxiosInstance.post.mockResolvedValue(
         createMockAxiosResponse(createSysResponse({ updated: true, config: configUpdate }))
       );
@@ -357,7 +365,7 @@ describe('hi-http 集成测试', () => {
         name: '',
         email: 'invalid-email'
       };
-      
+
       const result = await hiHttp.useBusPost('/api/users', formData, {
         param_not_null_key: 'name',
         param_not_null_key_tip: '姓名不能为空',
@@ -385,7 +393,7 @@ describe('hi-http 集成测试', () => {
 
       const promises = [
         hiHttp.useBusGet('/api/item/1'),
-        hiHttp.useBusGet('/api/item/2'), 
+        hiHttp.useBusGet('/api/item/2'),
         hiHttp.useBusGet('/api/item/3')
       ];
 
@@ -416,7 +424,7 @@ describe('hi-http 集成测试', () => {
         items: new Array(1000).fill(null).map((_, i) => ({ id: i, name: `Item ${i}` })),
         total: 1000
       };
-      
+
       mockAxiosInstance.get.mockResolvedValue(
         createMockAxiosResponse(createBusResponse(largeData))
       );
@@ -439,11 +447,11 @@ describe('TypeScript 类型支持', () => {
     }
 
     // 这些调用应该通过TypeScript类型检查
-    const getUsersCall = (): Promise<User[] | undefined> => 
+    const getUsersCall = (): Promise<User[] | undefined> =>
       hiHttp.useBusGet<User[]>('/api/users');
-      
+
     const createUserCall = (user: Omit<User, 'id'>): Promise<User | undefined> =>
-      hiHttp.useBusPost<User>('/api/users', user);
+      hiHttp.useBusPost<User>('/api/users', { ...user, id: 0 });
 
     expect(typeof getUsersCall).toBe('function');
     expect(typeof createUserCall).toBe('function');

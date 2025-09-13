@@ -1,6 +1,11 @@
 /**
  * useSYSfetch 测试
  */
+// 模拟服务实例
+const mockService = {
+  get: jest.fn(),
+  post: jest.fn()
+};
 
 // 模拟依赖
 jest.mock('../src/defineService', () => ({
@@ -12,11 +17,7 @@ import { useSysGet, useSysPost } from '../src/useSYSfetch';
 import { ElMessage } from './mocks/element-plus';
 import { createSysResponse, createMockAxiosResponse } from './utils/test-helpers';
 
-// 模拟服务实例
-const mockService = {
-  get: jest.fn(),
-  post: jest.fn()
-};
+
 
 describe('useSYSfetch', () => {
   beforeEach(() => {
@@ -113,7 +114,7 @@ describe('useSYSfetch', () => {
     it('应该发起POST请求并返回结果', async () => {
       const testData = { id: 123, name: 'Test User' };
       const requestParams = { name: 'Test User', email: 'test@example.com' };
-      
+
       mockService.post.mockResolvedValue(
         createMockAxiosResponse(createSysResponse(testData))
       );
@@ -142,7 +143,7 @@ describe('useSYSfetch', () => {
       const onSuccess = jest.fn();
       const onFormat = jest.fn((response) => response.result);
       const onFail = jest.fn();
-      
+
       mockService.post.mockResolvedValue(
         createMockAxiosResponse(createSysResponse(testData))
       );
@@ -166,7 +167,7 @@ describe('useSYSfetch', () => {
       const errorMessage = '数据验证失败';
       const onFail = jest.fn();
       const onSuccess = jest.fn();
-      
+
       mockService.post.mockResolvedValue(
         createMockAxiosResponse({
           statusCode: '400',
@@ -193,7 +194,7 @@ describe('useSYSfetch', () => {
     it('应该使用onFormat格式化返回数据', async () => {
       const rawData = { users: [{ id: 1, name: 'User1' }] };
       const formattedData = { userCount: 1 };
-      
+
       mockService.post.mockResolvedValue(
         createMockAxiosResponse(createSysResponse(rawData))
       );
@@ -232,7 +233,7 @@ describe('useSYSfetch', () => {
 
       for (const testCase of testCases) {
         jest.clearAllMocks();
-        
+
         mockService.post.mockResolvedValue(
           createMockAxiosResponse({
             statusCode: testCase.statusCode,
@@ -281,7 +282,7 @@ describe('useSYSfetch', () => {
         result: null,
         logLevel: 'error'
       };
-      
+
       mockService.post.mockResolvedValue(
         createMockAxiosResponse(errorResponse)
       );
@@ -305,7 +306,7 @@ describe('useSYSfetch', () => {
           format: 'json'
         }
       };
-      
+
       const testData = { id: 456 };
       mockService.post.mockResolvedValue(
         createMockAxiosResponse(createSysResponse(testData))

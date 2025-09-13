@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "jsx": "preserve",
-    "module": "ESNext",
+    "module": "esnext",
     "moduleResolution": "node",
     "esModuleInterop": true,
     "target": "ES2020",

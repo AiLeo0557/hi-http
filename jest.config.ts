@@ -21,7 +21,7 @@ const config: Config = {
     '/__tests__/utils/'
   ],
   setupFilesAfterEnv: ['<rootDir>/__tests__/utils/setup.ts'],
-  moduleNameMapping: {
+  moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1'
   },
   globals: {
