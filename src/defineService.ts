@@ -1,4 +1,3 @@
-import SmCore from 'sm-core'
 import axios from 'axios';
 import type { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { ElMessage, ElMessageBox } from 'element-plus';
@@ -7,8 +6,29 @@ import { ElMessage, ElMessageBox } from 'element-plus';
  * author: 杜朝辉
  * date: 2025-02-21
  * description: 定义服务
+ * 更新: 2025-09-13 - 添加动态加密支持和环境变量配置
  */
-const sm4key = new Array(16).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+
+// 加密配置接口
+interface EncryptConfig {
+  enabled: boolean;          // 是否启用加密
+  SM2PubKey: string;        // SM2 公钥
+  headCRC: string;          // 头部校验码
+  SM2PriKey?: string;       // SM2 私钥（可选）
+  sm4Key?: string;          // SM4 密钥（自动生成）
+  transmissionMode?: boolean; // 传输模式
+  debug?: boolean;          // 调试模式
+}
+
+// 动态导入 SmCore，避免在不需要加密时加载
+let SmCore: any = null;
+let smCoreInstance: any = null;
+
+// 生成 SM4 密钥
+const generateSm4Key = () => {
+  return new Array(16).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+};
+
 // 解析堆栈帧
 const parseStackFrame = (stackFrame: any) => {
   const match = stackFrame.match(/at\s+(.+)\s+\((.+):(\d+):(\d+)\)/);
@@ -20,60 +40,177 @@ const parseStackFrame = (stackFrame: any) => {
       columnNumber: match[4],
     };
   }
-}
-let SM2PubKey = ''
-let headCRC = ''
-if (Reflect.has(import.meta, 'env')) {
-  SM2PubKey = Reflect.get((import.meta as any).env, 'VITE_SM2PUBKEY');
-  headCRC = Reflect.get((import.meta as any).env, 'VITE_HEADCRC');
-}
-const sm = new SmCore({
-  SM2PubKey,
-  headCRC,
-  SM2PriKey: '',
-})
+};
+
+// 从环境变量获取加密配置
+const getEncryptConfig = (): EncryptConfig => {
+  const config: EncryptConfig = {
+    enabled: false,
+    SM2PubKey: '',
+    headCRC: '',
+    SM2PriKey: '',
+    transmissionMode: false,
+    debug: false
+  };
+
+  if (Reflect.has(import.meta, 'env')) {
+    const env = (import.meta as any).env;
+    
+    // 从环境变量读取配置
+    config.enabled = env.VITE_ENCRYPT_ENABLED === 'true' || env.VITE_ENCRYPT_ENABLED === true;
+    config.SM2PubKey = env.VITE_SM2PUBKEY || '';
+    config.headCRC = env.VITE_HEADCRC || '';
+    config.SM2PriKey = env.VITE_SM2PRIKEY || '';
+    config.transmissionMode = env.VITE_TRANSMISSION_MODE === 'true' || env.VITE_TRANSMISSION_MODE === true;
+    config.debug = env.VITE_ENCRYPT_DEBUG === 'true' || env.VITE_ENCRYPT_DEBUG === true;
+    
+    // 生成 SM4 密钥
+    config.sm4Key = generateSm4Key();
+  }
+
+  // 如果启用加密但缺少必要参数，输出警告
+  if (config.enabled && (!config.SM2PubKey || !config.headCRC)) {
+    console.warn('[hi-http] 加密已启用但缺少必要的加密参数 (SM2PubKey 或 headCRC)');
+    console.warn('[hi-http] 请在 .env 文件中设置 VITE_SM2PUBKEY 和 VITE_HEADCRC');
+  }
+
+  if (config.debug) {
+    console.log('[hi-http] 加密配置:', {
+      enabled: config.enabled,
+      hasSM2PubKey: !!config.SM2PubKey,
+      hasHeadCRC: !!config.headCRC,
+      transmissionMode: config.transmissionMode
+    });
+  }
+
+  return config;
+};
+
+// 初始化加密模块
+const initEncryption = async (config: EncryptConfig) => {
+  if (!config.enabled) {
+    if (config.debug) {
+      console.log('[hi-http] 加密未启用，使用普通模式');
+    }
+    return null;
+  }
+
+  try {
+    // 动态导入 sm-core
+    if (!SmCore) {
+      SmCore = (await import('sm-core')).default;
+      if (config.debug) {
+        console.log('[hi-http] sm-core 模块加载成功');
+      }
+    }
+    
+    if (!smCoreInstance) {
+      smCoreInstance = new SmCore({
+        SM2PubKey: config.SM2PubKey,
+        headCRC: config.headCRC,
+        SM2PriKey: config.SM2PriKey || '',
+      });
+      
+      if (config.debug) {
+        console.log('[hi-http] 加密实例初始化成功');
+      }
+    }
+    
+    return smCoreInstance;
+  } catch (error) {
+    console.error('[hi-http] 初始化加密模块失败:', error);
+    console.warn('[hi-http] 将继续使用非加密模式');
+    return null;
+  }
+};
+
+// 全局变量
+const encryptConfig = getEncryptConfig();
 let modeChanged = false;
 let flag = false; // 解决多次弹出登录框
+
+// 导出加密配置获取函数
+export const getHiHttpEncryptConfig = (): HiEncryptConfig => {
+  return { ...encryptConfig };
+};
+
+// 导出加密状态检查函数
+export const isEncryptEnabled = (): boolean => {
+  return encryptConfig.enabled;
+};
 export function defineService(type: HiServiceType) {
-  // let accessToken = ''
-  // if (typeof window !== 'undefined') {
-  //   accessToken = window?.localStorage?.getItem('USERTOKEN');
-  // }
   let baseURL = ''
   if (Reflect.has(import.meta, 'env')) {
     baseURL = Reflect.get((import.meta as any).env, `VITE_${type}_API_URL`);
   }
+  
   const service = axios.create({
     baseURL,
     timeout: 30000
   })
+  
+  // 初始化加密模块
+  let smInstance: any = null;
+  if (encryptConfig.enabled) {
+    initEncryption(encryptConfig).then(instance => {
+      smInstance = instance;
+    });
+  }
 
   // Request拦截器
   service.interceptors.request.use(
     async (config: InternalAxiosRequestConfig<any>): Promise<InternalAxiosRequestConfig<any>> => {
       const { url, method } = config
       const accessToken = window?.localStorage?.getItem('USERTOKEN')
-      console.log('accessToken:', accessToken)
+      
+      if (encryptConfig.debug) {
+        console.log('[hi-http] Request:', { url, method, accessToken: !!accessToken });
+      }
+      
       let { pathname } = window.location
       const _arr = pathname.split('/')
       pathname = _arr[_arr.length - 1]
       const sysTime = new Date().getTime()
+      
+      // 构建签名数据
       const sign: AxiosConfigHeaderSign = {
         data: JSON.stringify(config.data || config.params) || 'OK',
         sysTime,
         sign: `${sysTime}${accessToken}${url}${method}${pathname}`,
-        sm4Key: sm4key,
+        sm4Key: encryptConfig.sm4Key || '',
       }
+      
       if (!accessToken) {
         sign.accessToken = ''
       }
+      
+      // 设置请求头
       config.headers = {
-        transmissionMode: false, // 传输模式
+        transmissionMode: encryptConfig.transmissionMode || false, // 传输模式
         catalog: pathname, // 菜单名称
         accessToken,
         sysTime,
-        sign: sm.encrypt(sign)._sign,
       } as any
+      
+      // 如果启用加密且加密实例可用，则添加加密签名
+      if (encryptConfig.enabled && smInstance) {
+        try {
+          const encryptedSign = smInstance.encrypt(sign);
+          config.headers.sign = encryptedSign._sign;
+          
+          if (encryptConfig.debug) {
+            console.log('[hi-http] 加密签名已添加');
+          }
+        } catch (error) {
+          console.error('[hi-http] 加密签名失败:', error);
+          if (encryptConfig.debug) {
+            console.warn('[hi-http] 使用未加密的请求');
+          }
+        }
+      } else if (encryptConfig.debug && encryptConfig.enabled) {
+        console.warn('[hi-http] 加密已启用但实例未初始化，发送未加密请求');
+      }
+      
       return config
     },
     (error: Error) => {
@@ -198,12 +335,34 @@ export function defineService(type: HiServiceType) {
   return service
 }
 export type HiServiceType = 'SYS' | 'BUS'
+
 export interface AxiosConfigHeaderSign {
   accessToken?: string,
   data: string,
   sign: string,
   sysTime: number,
   sm4Key: string,
+}
+
+// 导出加密配置类型
+export interface HiEncryptConfig {
+  enabled: boolean;          // 是否启用加密
+  SM2PubKey: string;        // SM2 公钥
+  headCRC: string;          // 头部校验码
+  SM2PriKey?: string;       // SM2 私钥（可选）
+  sm4Key?: string;          // SM4 密钥（自动生成）
+  transmissionMode?: boolean; // 传输模式
+  debug?: boolean;          // 调试模式
+}
+
+// 加密环境变量配置
+export interface HiEncryptEnvConfig {
+  VITE_ENCRYPT_ENABLED?: string | boolean;     // 是否启用加密
+  VITE_SM2PUBKEY?: string;                     // SM2 公钥
+  VITE_HEADCRC?: string;                       // 头部校验码
+  VITE_SM2PRIKEY?: string;                     // SM2 私钥
+  VITE_TRANSMISSION_MODE?: string | boolean;   // 传输模式
+  VITE_ENCRYPT_DEBUG?: string | boolean;       // 调试模式
 }
 type ParamsType = 'json_str' | 'formData' | 'json'
 export interface HiRequestOptions<T> {
