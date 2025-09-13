@@ -35,6 +35,43 @@ yarn add hi-http
 pnpm add hi-http
 ```
 
+## 快速开始
+
+1. **安装并配置环境变量**
+
+```bash
+# 复制环境变量配置文件
+cp .env.example .env
+
+# 编辑 .env 文件，设置你的 API 地址
+```
+
+2. **基本使用**
+
+```typescript
+import { useBusGet, useBusPost } from 'hi-http';
+
+// GET 请求
+const users = await useBusGet('/api/users', { page: 1 });
+
+// POST 请求
+const result = await useBusPost('/api/users', { name: 'John' });
+```
+
+3. **启用加密（可选）**
+
+```bash
+# 安装加密依赖
+npm install sm-core
+```
+
+```env
+# 在 .env 中设置
+VITE_ENCRYPT_ENABLED=true
+VITE_SM2PUBKEY=your_sm2_public_key
+VITE_HEADCRC=your_head_crc
+```
+
 ## 依赖
 
 该库需要以下 peer dependencies:
@@ -56,12 +93,37 @@ pnpm add hi-http
 
 ### 配置环境变量
 
-在 `.env` 文件中配置 API 地址:
+在 `.env` 文件中配置 API 地址和加密相关设置:
 
-```
+#### 基本配置
+
+```env
+# API 地址配置
 VITE_BUS_API_URL=http://your-api-url/bus
 VITE_SYS_API_URL=http://your-api-url/sys
 VITE_FILE_DOWNLOAD_API_URL=http://your-api-url/download
+```
+
+#### 加密配置（可选）
+
+```env
+# 是否启用加密（默认: false）
+VITE_ENCRYPT_ENABLED=true
+
+# SM2 公钥（必需，当加密启用时）
+VITE_SM2PUBKEY=your_sm2_public_key
+
+# 头部校验码（必需，当加密启用时）
+VITE_HEADCRC=your_head_crc
+
+# SM2 私钥（可选）
+VITE_SM2PRIKEY=your_sm2_private_key
+
+# 传输模式（默认: false）
+VITE_TRANSMISSION_MODE=true
+
+# 加密调试模式（默认: false）
+VITE_ENCRYPT_DEBUG=true
 ```
 
 ### 基本使用
@@ -165,6 +227,35 @@ const downloadFile = async (fileId, fileName) => {
 };
 ```
 
+### 加密功能
+
+hi-http 支持基于 SM2/SM4 的加密功能，可以通过环境变量灵活控制。
+
+#### 启用加密
+
+1. 在 `.env` 文件中设置加密配置:
+
+```env
+VITE_ENCRYPT_ENABLED=true
+VITE_SM2PUBKEY=your_sm2_public_key
+VITE_HEADCRC=your_head_crc
+```
+
+2. 安装 `sm-core` 依赖:
+
+```bash
+npm install sm-core
+```
+
+3. 加密将自动应用到所有请求中。
+
+#### 加密特性
+
+- **动态加载**: 只有在启用加密时才加载 `sm-core` 模块
+- **自动降级**: 加密失败时自动使用普通模式
+- **调试模式**: 通过 `VITE_ENCRYPT_DEBUG=true` 查看加密过程
+- **灵活配置**: 支持多种加密参数配置
+
 ### 自定义服务
 
 你可以使用 `defineService` 创建自定义服务：
@@ -206,6 +297,27 @@ const params = getRequestParams(
 // 结果: { userId: 123, userName: 'John' }
 ```
 
+### 加密配置 API
+
+你可以使用以下 API 来检查和获取加密配置：
+
+```typescript
+import { getHiHttpEncryptConfig, isEncryptEnabled } from 'hi-http';
+
+// 检查加密是否启用
+if (isEncryptEnabled()) {
+  console.log('加密已启用');
+}
+
+// 获取当前加密配置
+const encryptConfig = getHiHttpEncryptConfig();
+console.log('加密配置:', {
+  enabled: encryptConfig.enabled,
+  hasSM2PubKey: !!encryptConfig.SM2PubKey,
+  transmissionMode: encryptConfig.transmissionMode
+});
+```
+
 ## 响应数据结构
 
 ### BUS 服务响应
@@ -244,6 +356,8 @@ interface SysResponse<T> {
 | `useSysPost` | 发起 SYS 服务 POST 请求 |
 | `defineService` | 创建自定义服务实例 |
 | `getRequestParams` | 处理复杂请求参数 |
+| `getHiHttpEncryptConfig` | 获取当前加密配置 |
+| `isEncryptEnabled` | 检查加密是否启用 |
 
 ### 请求选项
 
